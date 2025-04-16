@@ -1,24 +1,37 @@
 ---
-kind: ConfigMap 
-apiVersion: v1 
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: fio-job-config
+  name: fio-multi-job
 data:
-  fio.job: |-
+  fio.job: |
     [global]
     ioengine=psync
     direct=1
     buffered=0
-    size=10G
-    iodepth=1000
-    numjobs=100
     group_reporting
     refill_buffers
-    rwmixread=80
-    norandommap
-    randrepeat=0
-    percentage_random=0
-    bs=512K
-    buffer_compress_percentage=50
+
+    [readjob]
     rw=read
-    [testjob]
+    size=10G
+    numjobs=4
+    bs=512K
+    filename=testfile.fio
+    stonewall
+
+    [randwritejob]
+    rw=randwrite
+    size=4G
+    numjobs=4
+    bs=4K
+    filename=testfile.fio
+    stonewall
+
+    [rwmixjob]
+    rw=randrw
+    rwmixread=70
+    size=8G
+    numjobs=4
+    bs=128K
+    filename=testfile.fio

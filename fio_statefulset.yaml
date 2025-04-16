@@ -5,7 +5,7 @@ metadata:
   name: fio
 spec:
   serviceName: fio
-  replicas: 3 
+  replicas: 2
   selector:
     matchLabels:
       app: fio
@@ -17,17 +17,72 @@ spec:
       containers:
       - name: fio
         image: azalio/fio:3.19-multi
-        command: ["fio"]
-        args: ["/configs/fio.job", "--eta=never", "--filename_format=$jobnum.$filenum", "--directory=/scratch/"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "FIO container: Starting FIO tests..."
+            # Запускаем fio и сохраняем вывод
+            fio /configs/fio.job --eta=never --filename_format=$jobnum.$filenum --directory=/scratch/ --output=/scratch/fio-output.txt
+            fio_exit_code=$?
+            if [ $fio_exit_code -eq 0 ]; then
+              echo "FIO container: FIO finished successfully. Creating done file."
+              # Создаем маркерный файл при успехе
+              touch /scratch/fio.done
+            else
+              echo "FIO container: FIO failed with exit code $fio_exit_code."
+              # Опционально: создать файл ошибки или ничего не делать
+              # touch /scratch/fio.error
+            fi
+            # Держим контейнер запущенным, если нужно (или можно завершить)
+            echo "FIO container: Task finished. Sleeping indefinitely (remove if pod should terminate)."
+            sleep infinity
         volumeMounts:
         - name: fio-config-vol
           mountPath: /configs
         - name: fio-data
           mountPath: /scratch
+        # Добавляем sidecar-контейнер для загрузки вывода
+      - name: uploader
+        image: curlimages/curl:latest # Используем образ с curl
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            output_file="/scratch/fio-output.txt"
+            done_file="/scratch/fio.done" # Файл-маркер завершения fio
+            pastebin_url="https://termbin.com"
+
+            echo "Uploader: Waiting for FIO completion marker ($done_file)..."
+            # Ждем появления файла-маркера
+            while [ ! -f "$done_file" ]; do
+              sleep 5
+            done
+
+            echo "Uploader: FIO completion marker found."
+
+            # Проверяем, существует ли файл вывода перед загрузкой
+            if [ -f "$output_file" ]; then
+              echo "Uploader: FIO output file found. Uploading to $pastebin_url..."
+              # Загружаем файл и выводим URL в лог
+              uploaded_url=$(cat "$output_file" | curl -s -F "file=@-" "$pastebin_url")
+              if [ $? -eq 0 ] && [ -n "$uploaded_url" ]; then
+                echo "Uploader: FIO output successfully uploaded to: $uploaded_url"
+              else
+                echo "Uploader: Failed to upload FIO output."
+              fi
+            else
+              echo "Uploader: FIO output file ($output_file) not found, skipping upload."
+            fi
+
+            # Держим контейнер запущенным (опционально)
+            echo "Uploader: Task finished. Sleeping indefinitely."
+            sleep infinity
+        volumeMounts:
+        - name: fio-data # Монтируем тот же том, что и fio
+          mountPath: /scratch
       volumes:
       - name: fio-config-vol
         configMap:
-          name: fio-job-config
+          name: fio-multi-job
   volumeClaimTemplates:
   - metadata:
       name: fio-data
