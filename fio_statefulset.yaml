@@ -43,13 +43,17 @@ spec:
           mountPath: /scratch
         # Добавляем sidecar-контейнер для загрузки вывода
       - name: uploader
-        image: curlimages/curl:latest # Используем образ с curl
+        image: alpine:latest # Use alpine image
         command: ["/bin/sh", "-c"]
         args:
           - |
+            # Install necessary packages
+            apk update && apk add --no-cache netcat-openbsd
+
             output_file="/scratch/fio-output.txt"
             done_file="/scratch/fio.done" # Файл-маркер завершения fio
-            pastebin_url="https://termbin.com"
+            pastebin_host="termbin.com" # Host for nc
+            pastebin_port="9999"      # Port for nc
 
             echo "Uploader: Waiting for FIO completion marker ($done_file)..."
             # Ждем появления файла-маркера
@@ -61,13 +65,16 @@ spec:
 
             # Проверяем, существует ли файл вывода перед загрузкой
             if [ -f "$output_file" ]; then
-              echo "Uploader: FIO output file found. Uploading to $pastebin_url..."
-              # Загружаем файл и выводим URL в лог
-              uploaded_url=$(cat "$output_file" | curl -s -F "file=@-" "$pastebin_url")
-              if [ $? -eq 0 ] && [ -n "$uploaded_url" ]; then
+              echo "Uploader: FIO output file found. Uploading to $pastebin_host:$pastebin_port..."
+              # Upload using netcat and capture the URL
+              uploaded_url=$(cat "$output_file" | nc $pastebin_host $pastebin_port)
+              nc_exit_code=$? # Capture nc exit code
+
+              # Check nc exit code and if URL is not empty
+              if [ $nc_exit_code -eq 0 ] && [ -n "$uploaded_url" ]; then
                 echo "Uploader: FIO output successfully uploaded to: $uploaded_url"
               else
-                echo "Uploader: Failed to upload FIO output."
+                echo "Uploader: Failed to upload FIO output using nc (exit code: $nc_exit_code)."
               fi
             else
               echo "Uploader: FIO output file ($output_file) not found, skipping upload."
