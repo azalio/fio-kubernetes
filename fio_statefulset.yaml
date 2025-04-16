@@ -16,17 +16,9 @@ spec:
     spec:
       containers:
       - name: fio
-        image: azalio/fio:3.19
+        image: azalio/fio:3.19-multi
         command: ["fio"]
         args: ["/configs/fio.job", "--eta=never", "--filename_format=$jobnum.$filenum", "--directory=/scratch/"]
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          runAsNonRoot: true
-          seccompProfile:
-            type: RuntimeDefault
         volumeMounts:
         - name: fio-config-vol
           mountPath: /configs
