@@ -94,7 +94,7 @@ spec:
   - metadata:
       name: fio-data
     spec:
-      storageClassName: local-path
+      storageClassName: topolvm-provisioner
       accessModes:
       - ReadWriteOnce
       resources:
