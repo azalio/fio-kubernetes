@@ -12,30 +12,27 @@ data:
     group_reporting
     refill_buffers
     runtime=60 # Run each job for 60 seconds
-
+    
     [readjob]
     rw=read
     filesize=20G # Specify file size, large enough for the runtime
-    size=100G # Add a large size to satisfy Fio requirement
     numjobs=4
     bs=512K
     filename=testfile.fio
     stonewall
-
+    
     [randwritejob]
     rw=randwrite
     filesize=20G # Specify file size
-    size=100G # Add a large size
     numjobs=4
     bs=4K
     filename=testfile.fio
     stonewall
-
+    
     [rwmixjob]
     rw=randrw
     rwmixread=70
     filesize=20G # Specify file size
-    size=100G # Add a large size
     numjobs=4
     bs=128K
     filename=testfile.fio
